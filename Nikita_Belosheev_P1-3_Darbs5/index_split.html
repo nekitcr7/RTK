@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Insult Generator with Triggers</title>
+  <!-- Подключаем TensorFlow.js и модель токсичности -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/toxicity"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>😈 Mākslīgā intelekta apvainojumu ģenerators</h1>
+  <p>Spied pogu, lai saņemtu asu apvainojumu (filtrēts ar AI + trigeriem)</p>
+  <button onclick="generateFilteredInsult()">Ģenerēt apvainojumu</button>
+  <div id="insult">🧐</div>
+  <div id="stats">
+    <hr style="margin: 40px auto; width: 60%;">
+    <h3>📊 Statistika</h3>
+    <p>Ģenerēti apvainojumi: <span id="total">0</span></p>
+    <p>✅ Atļauti: <span id="shown">0</span></p>
+    <p>❌ Cenzēti: <span id="blocked">0</span></p>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

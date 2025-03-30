@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Insult Generator with Triggers</title>
+  <!-- Подключаем TensorFlow.js и модель токсичности -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/toxicity"></script>
+  <style>
+/* Встроенные стили */
+/* Iebūvēts CSS stils */
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #111;
+  color: #eee;
+  text-align: center;
+  padding: 50px;
+}
+button {
+  background-color: #e60000;
+  border: none;
+  color: white;
+  padding: 15px 30px;
+  font-size: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+button:hover {
+  background-color: #cc0000;
+}
+#insult {
+  font-size: 24px;
+  margin-top: 40px;
+  min-height: 50px;
+}
+.indicator {
+  display: inline-block;
+  margin-left: 15px;
+  font-size: 24px;
+  vertical-align: middle;
+}
+.toxic-green { color: #00ff99; }
+.toxic-yellow { color: #ffff66; }
+#stats {
+  margin-top: 60px;
+  font-size: 16px;
+  color: #bbb;
+}
+
+</style>
+</head>
+<body>
+  <h1>😈 Mākslīgā intelekta apvainojumu ģenerators</h1>
+  <p>Spied pogu, lai saņemtu asu apvainojumu (filtrēts ar AI + trigeriem)</p>
+  <button onclick="generateFilteredInsult()">Ģenerēt apvainojumu</button>
+  <div id="insult">🧐</div>
+  <div id="stats">
+    <hr style="margin: 40px auto; width: 60%;">
+    <h3>📊 Statistika</h3>
+    <p>Ģenerēti apvainojumi: <span id="total">0</span></p>
+    <p>✅ Atļauti: <span id="shown">0</span></p>
+    <p>❌ Cenzēti: <span id="blocked">0</span></p>
+  </div>
+  <script>
+// Встроенный JS-код
+// Iebūvēts JavaScript kods
+let model;
+let lastInsult = '';
+let total = 0;
+let shown = 0;
+let blocked = 0;
+
+// Список запрещённых фраз / Aizliegtās frāzes
+const triggerPhrases = [
+  "your mom", "your mum", "like a switch", "turn her on", "even a child",
+  "your sister", "you're adopted", "your dad left", "smells like",
+  "uglier than", "you're dumber than", "nobody loves you"
+];
+
+// Проверяем на триггер / Pārbaudām vai satur trigeri
+function containsTriggerPhrase(text) {
+  return triggerPhrases.some(phrase => text.toLowerCase().includes(phrase));
+}
+
+// Возвращаем иконку токсичности / Atgriež toksiskuma indikatoru
+function getIndicator(toxicity) {
+  if (toxicity < 0.2) return `<span class="indicator toxic-green">🟢</span>`;
+  if (toxicity < 0.5) return `<span class="indicator toxic-yellow">🟡</span>`;
+  return '';
+}
+
+// Обновляем статистику / Atjaunojam statistiku
+function updateStats() {
+  document.getElementById('total').textContent = total;
+  document.getElementById('shown').textContent = shown;
+  document.getElementById('blocked').textContent = blocked;
+}
+
+// Загружаем модель / Ielādējam modeli
+toxicity.load(0.8).then(m => {
+  model = m;
+  document.getElementById('insult').textContent = "✅ Modelis ielādēts. Gatavs apvainot!";
+});
+
+// Получаем случайное оскорбление / Saņem apvainojumu
+async function getInsult() {
+  try {
+    const url = `https://cors-anywhere.herokuapp.com/https://evilinsult.com/generate_insult.php?lang=en&type=json&ts=${Date.now()}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.insult === lastInsult) return await getInsult();
+    lastInsult = data.insult;
+    return data.insult;
+  } catch (err) {
+    return "❌ Neizdevās iegūt apvainojumu.";
+  }
+}
+
+// Генерация и фильтрация / Ģenerēšana un filtrēšana
+async function generateFilteredInsult() {
+  const insultDiv = document.getElementById('insult');
+  insultDiv.textContent = "🔍 Analizējam...";
+  const insult = await getInsult();
+  total++;
+
+  if (!model) {
+    insultDiv.textContent = "❌ Modelis nav ielādēts!";
+    return;
+  }
+
+  const predictions = await model.classify([insult]);
+  const toxicityScore = predictions.find(p => p.label === 'toxicity').results[0].probabilities[1];
+  const hasTrigger = containsTriggerPhrase(insult);
+
+  if (toxicityScore > 0.5 || hasTrigger) {
+    insultDiv.innerHTML = `⚠️ <strong>Šis apvainojums tika cenzēts${hasTrigger ? " (trigera frāze)" : ""}</strong>`;
+    blocked++;
+  } else {
+    const indicator = getIndicator(toxicityScore);
+    insultDiv.innerHTML = `${insult} ${indicator}`;
+    shown++;
+  }
+
+  updateStats();
+}
+
+</script>
+</body>
+</html>
