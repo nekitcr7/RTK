@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Moodify — Музыка по настроению</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #controls-container { position: sticky; top: 0; background: inherit; z-index: 10; padding: 1rem 0; }
+    body { font-family: Arial, sans-serif; text-align: center; padding: 2rem; background: #f0f2f5; transition: background 0.3s, color 0.3s; }
+    body.dark { background: #121212; color: #eee; }
+    #controls { margin-bottom: 1.5rem; }
+    #loading { font-style: italic; margin-top: 1rem; }
+    #tracks { display: flex; flex-direction: column; align-items: center; }
+    .track { display: flex; align-items: center; background: #fff; width:90%; max-width:600px; padding:0.75rem; margin:0.5rem 0; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); transition: background 0.3s; }
+    body.dark .track { background: #1e1e1e; }
+    .track img { width:60px; height:60px; object-fit:cover; border-radius:4px; margin-right:1rem; }
+    .track-info { text-align:left; flex-grow:1; }
+    .track-info p strong, .track-info p a { color:inherit; text-decoration:none; font-weight:bold; }
+    .track-info p a:hover { text-decoration:underline; }
+    button, select { margin-top:1rem; padding:0.5rem 1rem; font-size:16px; border:none; background-color:#007bff; color:white; border-radius:4px; cursor:pointer; }
+    button:hover, select:hover { background-color:#0056b3; }
+    #theme-toggle { position:absolute; top:10px; right:10px; }
+    #peep-toggle { position:absolute; top:10px; right:100px; }
+    #count-container { margin-top:1rem; }
+    .custom-player { display:flex; align-items:center; gap:10px; margin-top:8px; }
+    .custom-player button.play { background:transparent; border:none; font-size:20px; cursor:pointer; color:inherit; }
+    .custom-player .progress { flex:1; height:16px; background:#ccc; border-radius:10px; overflow:hidden; cursor:pointer; }
+    .custom-player .bar { background:#007bff; width:0%; height:100%; transition:width 0.1s; }
+    .custom-player .time { font-size:12px; min-width:40px; }
+    .custom-player input.volume { width:80px; }
+  </style>
+</head>
+<body>
+  <button id="theme-toggle">🌙 Тема</button>
+  <button id="peep-toggle">Peep Mode</button>
+  <h1>🎧 Moodify</h1>
+
+  <div id="controls-container">
+    <div id="controls">
+      <p>Выбери настроение:</p>
+      <select id="mood-select">
+        <option value="happy">Весело</option>
+        <option value="sad">Грустно</option>
+        <option value="chill">Спокойно</option>
+        <option value="energetic">Энергично</option>
+      </select>
+      <button id="find-button">Найти музыку</button>
+    </div>
+    <div id="count-container">
+      <label for="count-select">Сколько треков за раз:</label>
+      <select id="count-select">
+        <option value="10">10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+      <button id="more-button" style="display:none">Загрузить ещё</button>
+    </div>
+  </div>
+
+  <div id="loading"></div>
+  <div id="tracks"></div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    $(function() {
+      let peepMode = false;
+
+      const moodKeywords = {
+        happy: 'happy',
+        sad: 'sad',
+        chill: 'chill',
+        energetic: 'energetic'
+      };
+
+      const state = {
+        cache: {}, order: {}, pIndex: {}, tIndex: {}, lengths: {},
+        peepTracks: null, peepIndex: 0, playedTracks: {}
+      };
+
+      $('#theme-toggle').click(() => $('body').toggleClass('dark'));
+
+      $('#peep-toggle').click(() => {
+        peepMode = true;
+        $('h1').text('🎵 Peep Mode');
+        $('body').css({
+          background: '#1d1d1d',
+          color: '#ffb6c1',
+          fontFamily: 'Courier New, monospace'
+        });
+        loadTracks(false);
+      });
+
+      function initPlayer(container) {
+        const audio = container.find('audio')[0];
+        const btn = container.find('button.play');
+        const bar = container.find('.bar');
+        const time = container.find('.time');
+        const vol = container.find('.volume')[0];
+
+        btn.click(() => {
+          $('audio').each((i, a) => {
+            if (a !== audio) a.pause();
+          });
+          audio.paused ? audio.play() : audio.pause();
+        });
+
+        vol.oninput = () => audio.volume = vol.value;
+
+        audio.onplay = () => btn.text('⏸️');
+        audio.onpause = () => btn.text('▶️');
+
+        audio.ontimeupdate = () => {
+          if (!audio.duration) return;
+          const pct = (audio.currentTime / audio.duration) * 100;
+          bar.css('width', pct + '%');
+          const m = Math.floor(audio.currentTime / 60);
+          const s = Math.floor(audio.currentTime % 60).toString().padStart(2, '0');
+          time.text(`${m}:${s}`);
+        };
+
+        container.find('.progress').click(e => {
+          const rect = container.find('.progress')[0].getBoundingClientRect();
+          const pct = (e.clientX - rect.left) / rect.width;
+          audio.currentTime = pct * audio.duration;
+        });
+
+        audio.onended = () => {
+          const next = container.closest('.track').next().find('audio')[0];
+          if (next) next.play();
+        };
+      }
+
+      function displayPeep(cnt) {
+        $('#tracks').empty();
+        const arr = state.peepTracks;
+        const slice = arr.slice(state.peepIndex, state.peepIndex + cnt);
+        slice.forEach(tr => {
+          if (!tr.preview || tr.artist.name.toLowerCase() !== 'lil peep') return;
+          const div = $('<div>').addClass('track');
+          const img = $('<img>').attr('src', tr.album.cover_medium);
+          const info = $('<div>').addClass('track-info');
+          const title = $(`<p><strong><a href="${tr.link}" target="_blank">${tr.title}</a></strong></p>`);
+          const artist = $(`<p><a href="https://open.spotify.com/search/${encodeURIComponent(tr.artist.name)}" target="_blank">${tr.artist.name}</a></p>`);
+          const player = $(`
+            <div class="custom-player">
+              <button class="play">▶️</button>
+              <input class="volume" type="range" min="0" max="1" step="0.01" value="1">
+              <div class="progress"><div class="bar"></div></div>
+              <span class="time">0:00</span>
+              <audio src="${tr.preview}"></audio>
+            </div>
+          `);
+          info.append(title, artist, player);
+          div.append(img, info);
+          $('#tracks').append(div);
+          initPlayer(player);
+        });
+        state.peepIndex += slice.length;
+        const rem = state.peepTracks.length - state.peepIndex;
+        rem > 0 ? $('#more-button').show().text(`Загрузить ещё (${rem})`) : $('#more-button').hide();
+      }
+
+      function displayNormal(slice, mood, cnt) {
+        $('#tracks').empty();
+        slice.forEach(tr => {
+          const div = $('<div>').addClass('track');
+          const img = $('<img>').attr('src', tr.album.cover_medium);
+          const info = $('<div>').addClass('track-info');
+          const title = $(`<p><strong><a href="${tr.link}" target="_blank">${tr.title}</a></strong></p>`);
+          const artist = $(`<p><a href="https://open.spotify.com/search/${encodeURIComponent(tr.artist.name)}" target="_blank">${tr.artist.name}</a></p>`);
+          const player = $(`
+            <div class="custom-player">
+              <button class="play">▶️</button>
+              <input class="volume" type="range" min="0" max="1" step="0.01" value="1">
+              <div class="progress"><div class="bar"></div></div>
+              <span class="time">0:00</span>
+              <audio src="${tr.preview}"></audio>
+            </div>
+          `);
+          info.append(title, artist, player);
+          div.append(img, info);
+          $('#tracks').append(div);
+          initPlayer(player);
+        });
+      }
+
+      function loadTracks(more = false) {
+        const cnt = +$('#count-select').val();
+        const mood = $('#mood-select').val();
+        $('#loading').text('Загрузка...');
+        $('#find-button,#more-button').prop('disabled', true);
+
+        if (peepMode) {
+          if (!state.peepTracks) {
+            $.ajax({
+              url: `https://api.deezer.com/search/track?q=artist:%22Lil Peep%22&output=jsonp`,
+              dataType: 'jsonp',
+              success(d) {
+                state.peepTracks = d.data;
+                state.peepIndex = 0;
+                displayPeep(cnt);
+                $('#loading').text('');
+                $('#find-button,#more-button').prop('disabled', false);
+              }
+            });
+          } else {
+            displayPeep(cnt);
+            $('#loading').text('');
+            $('#find-button,#more-button').prop('disabled', false);
+          }
+          return;
+        }
+
+        if (!state.cache[mood]) {
+          $.ajax({
+            url: `https://api.deezer.com/search/playlist?q=${moodKeywords[mood]}&output=jsonp`,
+            dataType: 'jsonp',
+            success(d) {
+              state.cache[mood] = d.data;
+              loadTracks(more);
+            }
+          });
+          return;
+        }
+
+        const list = state.cache[mood];
+        const rIdx = Math.floor(Math.random() * list.length);
+        const playlist = list[rIdx];
+
+        $.ajax({
+          url: `https://api.deezer.com/playlist/${playlist.id}?output=jsonp`,
+          dataType: 'jsonp',
+          success(d) {
+            const tracks = d.tracks.data.filter(t => t.preview);
+            state.playedTracks[mood] = state.playedTracks[mood] || new Set();
+            let available = tracks.filter(t => !state.playedTracks[mood].has(t.id));
+            if (available.length < cnt) {
+              state.playedTracks[mood].clear();
+              available = tracks;
+            }
+            available.sort(() => Math.random() - 0.5);
+            const slice = available.slice(0, cnt);
+            slice.forEach(t => state.playedTracks[mood].add(t.id));
+            displayNormal(slice, mood, cnt);
+            $('#loading').text('');
+            $('#find-button').prop('disabled', false);
+            $('#more-button').hide();
+          }
+        });
+      }
+
+      $('#find-button').click(() => {
+        peepMode = false;
+        loadTracks(false);
+      });
+
+      $('#more-button').click(() => loadTracks(true));
+    });
+  </script>
+</body>
+</html>
+
