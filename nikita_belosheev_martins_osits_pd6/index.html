@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="lv">
 <head>
   <meta charset="UTF-8">
-  <title>Moodify — Музыка по настроению</title>
+  <title>Moodify — Mūzika pēc noskaņas</title>
   <link rel="stylesheet" href="style.css">
   <style>
     #controls-container { position: sticky; top: 0; background: inherit; z-index: 10; padding: 1rem 0; }
@@ -31,29 +31,29 @@
   </style>
 </head>
 <body>
-  <button id="theme-toggle">🌙 Тема</button>
+  <button id="theme-toggle">🌙 Tēma</button>
   <button id="peep-toggle">Peep Mode</button>
   <h1>🎧 Moodify</h1>
 
   <div id="controls-container">
     <div id="controls">
-      <p>Выбери настроение:</p>
+      <p>Izvēlies noskaņojumu:</p>
       <select id="mood-select">
-        <option value="happy">Весело</option>
-        <option value="sad">Грустно</option>
-        <option value="chill">Спокойно</option>
-        <option value="energetic">Энергично</option>
+        <option value="happy">Jautrs</option>
+        <option value="sad">Skumjš</option>
+        <option value="chill">Mierīgs</option>
+        <option value="energetic">Enerģisks</option>
       </select>
-      <button id="find-button">Найти музыку</button>
+      <button id="find-button">Atrast mūziku</button>
     </div>
     <div id="count-container">
-      <label for="count-select">Сколько треков за раз:</label>
+      <label for="count-select">Cik dziesmu vienā reizē:</label>
       <select id="count-select">
         <option value="10">10</option>
         <option value="25">25</option>
         <option value="50">50</option>
       </select>
-      <button id="more-button" style="display:none">Загрузить ещё</button>
+      <button id="more-button" style="display:none">Ielādēt vēl</button>
     </div>
   </div>
 
@@ -144,7 +144,7 @@
           const player = $(`
             <div class="custom-player">
               <button class="play">▶️</button>
-              <input class="volume" type="range" min="0" max="1" step="0.01" value="1">
+              <input class="volume" type="range" min="0" max="1" step="0.01" value="0.25">
               <div class="progress"><div class="bar"></div></div>
               <span class="time">0:00</span>
               <audio src="${tr.preview}"></audio>
@@ -157,7 +157,7 @@
         });
         state.peepIndex += slice.length;
         const rem = state.peepTracks.length - state.peepIndex;
-        rem > 0 ? $('#more-button').show().text(`Загрузить ещё (${rem})`) : $('#more-button').hide();
+        rem > 0 ? $('#more-button').show().text(`Ielādēt vēl (${rem})`) : $('#more-button').hide();
       }
 
       function displayNormal(slice, mood, cnt) {
@@ -171,7 +171,7 @@
           const player = $(`
             <div class="custom-player">
               <button class="play">▶️</button>
-              <input class="volume" type="range" min="0" max="1" step="0.01" value="1">
+              <input class="volume" type="range" min="0" max="1" step="0.01" value="0.25">
               <div class="progress"><div class="bar"></div></div>
               <span class="time">0:00</span>
               <audio src="${tr.preview}"></audio>
@@ -187,7 +187,7 @@
       function loadTracks(more = false) {
         const cnt = +$('#count-select').val();
         const mood = $('#mood-select').val();
-        $('#loading').text('Загрузка...');
+        $('#loading').text('Notiek ielāde...');
         $('#find-button,#more-button').prop('disabled', true);
 
         if (peepMode) {
@@ -259,4 +259,3 @@
   </script>
 </body>
 </html>
-
