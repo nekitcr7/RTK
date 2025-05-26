@@ -1,0 +1,7 @@
+# Ignorēt attēlu mapi
+images/
+
+# Ignorēt arhīvus un izpildāmos failus
+*.zip
+*.rar
+*.exe
